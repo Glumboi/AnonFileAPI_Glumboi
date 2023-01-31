@@ -7,16 +7,17 @@ using System.Xml.XPath;
 using System.IO;
 using System.Windows.Forms;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace AnonFileAPI
 {
     public class AnonFileWrapper : IDisposable
     {
-        private readonly WebClient _client   = null;
+        private readonly WebClient _client = null;
         private bool _disposed = false;
 
         /// <summary>
-        ///     Initializes new WebClient.          
+        ///     Initializes new WebClient.
         /// </summary>
         public AnonFileWrapper()
         {
@@ -24,17 +25,17 @@ namespace AnonFileAPI
         }
 
         /// <summary>
-        ///     Downloads the file to the specified path. 
+        ///     Downloads the file to the specified path.
         /// </summary>
         /// <param name="fileUrl"> The URL of the file wanted. </param>
         /// <param name="downloadLocation"> The specified path with file and extension. </param>
         public void DownloadFile(string fileUrl, string downloadLocation)
         {
-           _client.DownloadFile(GetDirectDownloadLinkFromLink(fileUrl), downloadLocation);
+            _client.DownloadFile(GetDirectDownloadLinkFromLink(fileUrl), downloadLocation);
         }
 
         /// <summary>
-        ///     Downloads the file to the specified path. 
+        ///     Downloads the file to the specified path.
         /// </summary>
         /// <param name="fileUrl"> The URL of the file wanted. </param>
         /// <param name="downloadLocation"> The specified path with file and extension. </param>
@@ -56,7 +57,7 @@ namespace AnonFileAPI
         public AnonFile UploadFile(string fileLocation)
         {
             if (!File.Exists(fileLocation))
-                throw new AnonFileException($"Invalid file path at {fileLocation}");
+                throw new Exception($"Invalid file path at {fileLocation}");
 
             byte[] response = _client.UploadFile("https://api.anonfile.com/upload", fileLocation);
 
@@ -74,11 +75,10 @@ namespace AnonFileAPI
             AutoResetEvent waitHandle = new AutoResetEvent(false);
 
             if (!File.Exists(fileLocation))
-                throw new AnonFileException($"Invalid file path at {fileLocation}");
+                throw new Exception($"Invalid file path at {fileLocation}");
 
             _client.UploadFileAsync(new Uri("https://api.anonfile.com/upload"), fileLocation);
 
-            
             if (handler != null)
             {
                 _client.UploadProgressChanged += handler;
@@ -93,7 +93,7 @@ namespace AnonFileAPI
             waitHandle.WaitOne();
             waitHandle.Dispose();
 
-            return response != null ? ParseOutput(response) : throw new AnonFileException("Failed to grab AnonFile's server response to the upload event!"); ;
+            return response != null ? ParseOutput(response) : throw new Exception("Failed to grab AnonFile's server response to the upload event!"); ;
         }
 
         /// <summary>
@@ -105,33 +105,18 @@ namespace AnonFileAPI
         /// <returns></returns>
         public string GetDirectDownloadLinkFromLink(string link, string elementname = "download-url")
         {
-            string htmlDoc = _client.DownloadString(link);
-            string directDownloadUrl = null;
+            string directDownloadUrl = string.Empty;
 
+            HtmlAgilityPack.HtmlWeb web = new HtmlAgilityPack.HtmlWeb();
+            HtmlAgilityPack.HtmlDocument document = web.Load(link);
 
-            //this is only done to set the apartment state to STA and due to the webbrowser throwing errors if it isn't!
-            Thread safeThread = new Thread(() =>
-            {
-                using (WebBrowser browser = new WebBrowser())
-                {
-                    browser.DocumentText = htmlDoc;
-                    browser.ScriptErrorsSuppressed = true;
-                    browser.Document.OpenNew(true);
-                    browser.Document.Write(htmlDoc);
-                    browser.Refresh();
-                    directDownloadUrl = browser.Document.GetElementById(elementname).GetAttribute("href");
-                }
-            }){ ApartmentState = ApartmentState.STA };
-
-            safeThread.Start();
-            safeThread.Join();
-
-            return directDownloadUrl ?? throw new AnonFileException("Failed to locate the direct download link! This could be because the website changed its element id for the download link, if so you can set the second paramater to the correct one!");
+            string href = document.GetElementbyId(elementname).GetAttributeValue("href", "");
+            directDownloadUrl = href;
+            return directDownloadUrl ?? throw new Exception("Failed to locate the direct download link! This could be because the website changed its element id for the download link, if so you can set the second paramater to the correct one!");
         }
 
-
         /// <summary>
-        ///     Parses the JSON reply and returns AnonFiles with set properties. 
+        ///     Parses the JSON reply and returns AnonFiles with set properties.
         /// </summary>
         /// <param name="input"></param>
         private AnonFile ParseOutput(string input)
@@ -168,7 +153,6 @@ namespace AnonFileAPI
                     _client.Dispose();
                 }
 
-                
                 this._disposed = true;
             }
         }

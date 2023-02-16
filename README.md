@@ -2,6 +2,7 @@
 
 An unofficial C# API for interacting with https://anonfile.com/
 
+[Official NuGet package](https://www.nuget.org/packages/Glumboi_AnonfilesAPI/)
 
 ## Abilities 
   - Convert link to direct download link.
